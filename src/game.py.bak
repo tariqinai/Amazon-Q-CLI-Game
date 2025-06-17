@@ -1,0 +1,37 @@
+    def _update_background(self) -> None:
+        """Update animated background elements"""
+        # Update meteors
+        for meteor in self.meteors:
+            # Update position
+            meteor['x'] += math.cos(meteor['angle']) * meteor['speed']
+            meteor['y'] += math.sin(meteor['angle']) * meteor['speed']
+            
+            # Add to trail
+            meteor['trail'].append((meteor['x'], meteor['y']))
+            if len(meteor['trail']) > 10:
+                meteor['trail'].pop(0)
+            
+            # Reset if off screen
+            if (meteor['y'] > SCREEN_HEIGHT + 50 or 
+                meteor['x'] < -50 or 
+                meteor['x'] > SCREEN_WIDTH + 50):
+                meteor['x'] = random.randint(-100, SCREEN_WIDTH + 100)
+                meteor['y'] = random.randint(-100, -20)
+                meteor['trail'] = []
+        
+        # Update nebulas
+        for nebula in self.nebulas:
+            # Drift movement
+            nebula['x'] += nebula['drift_x']
+            nebula['y'] += nebula['drift_y']
+            
+            # Wrap around screen
+            if nebula['x'] < -nebula['size']:
+                nebula['x'] = SCREEN_WIDTH + nebula['size']
+            elif nebula['x'] > SCREEN_WIDTH + nebula['size']:
+                nebula['x'] = -nebula['size']
+                
+            if nebula['y'] < -nebula['size']:
+                nebula['y'] = SCREEN_HEIGHT + nebula['size']
+            elif nebula['y'] > SCREEN_HEIGHT + nebula['size']:
+                nebula['y'] = -nebula['size']

@@ -1,0 +1,165 @@
+"""
+Game class to manage game state
+"""
+import pygame
+import json
+import random
+import os
+import math
+import time
+from typing import List, Dict, Tuple, Optional
+from settings import *
+from sprites import Paddle, Ball, Brick, PowerUp
+
+class Game:
+    def __init__(self, screen: pygame.Surface) -> None:
+        """Initialize the game"""
+        self.screen = screen
+        self.running = True
+        self.paused = False
+        
+        # Game objects
+        self.paddle = Paddle()
+        self.balls = pygame.sprite.Group()
+        self.bricks = pygame.sprite.Group()
+        self.powerups = pygame.sprite.Group()
+        self.particles = []  # Particle effects
+        
+        # Game state
+        self.score = 0
+        self.lives = INITIAL_LIVES
+        self.level = 0
+        self.level_complete = False
+        self.game_over = False
+        self.ball_was_active = False  # Track if ball was active to properly count lives
+        self.original_ball = None  # Track the original ball to only count lives for it
+        
+        # Visual effects
+        self.shake_amount = 0
+        self.shake_time = 0
+        self.background_stars = self._create_stars(STAR_COUNT)
+        self.meteors = self._create_meteors(METEOR_COUNT)
+        self.nebulas = self._create_nebulas(NEBULA_COUNT)
+        
+        # Load sounds
+        self.sounds = {}
+        self._load_sounds()
+        
+        # Load font
+        self._load_font()
+        
+        # Show instructions at start
+        self.show_instructions = True
+        
+        # Create initial ball and position it
+        self.create_ball(is_original=True)
+        self._position_ball_on_paddle()
+        
+        # Load first level
+        self._load_level_bricks(self.level)
+    
+    def _create_stars(self, count: int) -> List[Tuple[int, int, int, float]]:
+        """Create a starfield background"""
+        stars = []
+        for _ in range(count):
+            x = random.randint(0, SCREEN_WIDTH)
+            y = random.randint(0, SCREEN_HEIGHT)
+            size = random.randint(1, 3)
+            brightness = random.uniform(0.5, 1.0)
+            stars.append((x, y, size, brightness))
+        return stars
+    
+    def _create_meteors(self, count: int) -> List[Dict]:
+        """Create meteors for animated background"""
+        meteors = []
+        for _ in range(count):
+            # Start meteors off-screen
+            x = random.randint(-100, SCREEN_WIDTH + 100)
+            y = random.randint(-100, -20)
+            size = random.randint(2, 8)
+            speed = random.uniform(METEOR_SPEED_MIN, METEOR_SPEED_MAX)
+            angle = random.uniform(math.pi/4, math.pi*3/4)  # Downward trajectory
+            meteors.append({
+                'x': x,
+                'y': y,
+                'size': size,
+                'speed': speed,
+                'angle': angle,
+                'trail': []
+            })
+        return meteors
+    
+    def _create_nebulas(self, count: int) -> List[Dict]:
+        """Create nebula clouds for background"""
+        nebulas = []
+        for _ in range(count):
+            x = random.randint(0, SCREEN_WIDTH)
+            y = random.randint(0, SCREEN_HEIGHT)
+            size = random.randint(100, 300)
+            color = random.choice([
+                (30, 0, 60, 30),   # Purple
+                (0, 30, 60, 30),   # Blue
+                (60, 20, 0, 30)    # Orange
+            ])
+            drift_x = random.uniform(-NEBULA_DRIFT_SPEED, NEBULA_DRIFT_SPEED)
+            drift_y = random.uniform(-NEBULA_DRIFT_SPEED, NEBULA_DRIFT_SPEED)
+            nebulas.append({
+                'x': x,
+                'y': y,
+                'size': size,
+                'color': color,
+                'drift_x': drift_x,
+                'drift_y': drift_y,
+                'points': self._generate_nebula_points(size)
+            })
+        return nebulas
+    
+    def _generate_nebula_points(self, size: int) -> List[Tuple[float, float]]:
+        """Generate points for a nebula cloud"""
+        points = []
+        num_points = random.randint(8, 12)
+        for i in range(num_points):
+            angle = 2 * math.pi * i / num_points
+            distance = size * 0.5 * random.uniform(0.7, 1.3)
+            x = math.cos(angle) * distance
+            y = math.sin(angle) * distance
+            points.append((x, y))
+        return points
+    
+    def _update_background(self) -> None:
+        """Update animated background elements"""
+        # Update meteors
+        for meteor in self.meteors:
+            # Update position
+            meteor['x'] += math.cos(meteor['angle']) * meteor['speed']
+            meteor['y'] += math.sin(meteor['angle']) * meteor['speed']
+            
+            # Add to trail
+            meteor['trail'].append((meteor['x'], meteor['y']))
+            if len(meteor['trail']) > 10:
+                meteor['trail'].pop(0)
+            
+            # Reset if off screen
+            if (meteor['y'] > SCREEN_HEIGHT + 50 or 
+                meteor['x'] < -50 or 
+                meteor['x'] > SCREEN_WIDTH + 50):
+                meteor['x'] = random.randint(-100, SCREEN_WIDTH + 100)
+                meteor['y'] = random.randint(-100, -20)
+                meteor['trail'] = []
+        
+        # Update nebulas
+        for nebula in self.nebulas:
+            # Drift movement
+            nebula['x'] += nebula['drift_x']
+            nebula['y'] += nebula['drift_y']
+            
+            # Wrap around screen
+            if nebula['x'] < -nebula['size']:
+                nebula['x'] = SCREEN_WIDTH + nebula['size']
+            elif nebula['x'] > SCREEN_WIDTH + nebula['size']:
+                nebula['x'] = -nebula['size']
+                
+            if nebula['y'] < -nebula['size']:
+                nebula['y'] = SCREEN_HEIGHT + nebula['size']
+            elif nebula['y'] > SCREEN_HEIGHT + nebula['size']:
+                nebula['y'] = -nebula['size']
