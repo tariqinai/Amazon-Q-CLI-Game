@@ -24,10 +24,8 @@ Brick Breaker challenges you to clear colourful brick patterns with a bouncing b
 
 ## Screenshots 📸
 
-```markdown
 ![Title screen](docs/screenshots/title.png)
 ![In‑game action](docs/screenshots/gameplay.png)
-```
 
 ## Features ✨
 
@@ -140,7 +138,7 @@ Keep total output <25 k tokens. Cheers! 🎉
 
 ## Lessons learned 🧠
 
-- **Iterative prompting beats monoliths.** Splitting work across three prompts kept Q’s output coherent and modular.
+- **Iterative prompting beats monoliths.** Splitting work across multiple prompts kept Q’s output coherent and modular. It helps in debugging code easy.
 - **File‑aware agentic mode is 🔥.** Q wrote & updated individual files without clobbering unrelated code.
 - **Small assets, fast repo.** Using CC‑0 pixel art prevents bloated pushes and makes reviewers happy.
 
